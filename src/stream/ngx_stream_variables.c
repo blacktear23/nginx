@@ -51,6 +51,10 @@ static ngx_int_t ngx_stream_variable_time_local(ngx_stream_session_t *s,
 static ngx_int_t ngx_stream_variable_protocol(ngx_stream_session_t *s,
     ngx_stream_variable_value_t *v, uintptr_t data);
 
+#if (NGX_HAVE_TCP_INFO)
+static ngx_int_t ngx_stream_variable_tcpinfo(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data);
+#endif
 
 static ngx_stream_variable_t  ngx_stream_core_variables[] = {
 
@@ -121,6 +125,19 @@ static ngx_stream_variable_t  ngx_stream_core_variables[] = {
     { ngx_string("protocol"), NULL,
       ngx_stream_variable_protocol, 0, 0, 0 },
 
+#if (NGX_HAVE_TCP_INFO)
+    { ngx_string("tcpinfo_rtt"), NULL, ngx_stream_variable_tcpinfo,
+      0, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_rttvar"), NULL, ngx_stream_variable_tcpinfo,
+      1, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_snd_cwnd"), NULL, ngx_stream_variable_tcpinfo,
+      2, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_rcv_space"), NULL, ngx_stream_variable_tcpinfo,
+      3, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+#endif
       ngx_stream_null_variable
 };
 
@@ -1276,3 +1293,58 @@ ngx_stream_variables_init_vars(ngx_conf_t *cf)
 
     return NGX_OK;
 }
+
+#if (NGX_HAVE_TCP_INFO)
+
+static ngx_int_t
+ngx_stream_variable_tcpinfo(ngx_stream_session_t *s, ngx_stream_variable_value_t *v,
+    uintptr_t data)
+{
+    struct tcp_info  ti;
+    socklen_t        len;
+    uint32_t         value;
+
+    len = sizeof(struct tcp_info);
+    if (getsockopt(s->connection->fd, IPPROTO_TCP, TCP_INFO, &ti, &len) == -1) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->data = ngx_pnalloc(r->pool, NGX_INT32_LEN);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    switch (data) {
+    case 0:
+        value = ti.tcpi_rtt;
+        break;
+
+    case 1:
+        value = ti.tcpi_rttvar;
+        break;
+
+    case 2:
+        value = ti.tcpi_snd_cwnd;
+        break;
+
+    case 3:
+        value = ti.tcpi_rcv_space;
+        break;
+
+    /* suppress warning */
+    default:
+        value = 0;
+        break;
+    }
+
+    v->len = ngx_sprintf(v->data, "%uD", value) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+#endif
+
