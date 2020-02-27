@@ -123,7 +123,7 @@ static ngx_stream_variable_t  ngx_stream_upstream_vars[] = {
       NGX_STREAM_VAR_NOCACHEABLE, 0 },
 
     { ngx_string("tcpinfo_up_total_retrans"), NULL,
-      ngx_upstream_variable_tcpinfo, 4
+      ngx_upstream_variable_tcpinfo, 4,
       NGX_STREAM_VAR_NOCACHEABLE, 0 },
 #endif
 
