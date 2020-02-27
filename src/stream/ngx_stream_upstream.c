@@ -25,6 +25,11 @@ static char *ngx_stream_upstream_server(ngx_conf_t *cf, ngx_command_t *cmd,
 static void *ngx_stream_upstream_create_main_conf(ngx_conf_t *cf);
 static char *ngx_stream_upstream_init_main_conf(ngx_conf_t *cf, void *conf);
 
+#if (NGX_HAVE_TCP_INFO)
+static ngx_int_t ngx_upstream_variable_tcpinfo(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data);
+#endif
+
 
 static ngx_command_t  ngx_stream_upstream_commands[] = {
 
@@ -99,6 +104,28 @@ static ngx_stream_variable_t  ngx_stream_upstream_vars[] = {
     { ngx_string("upstream_bytes_received"), NULL,
       ngx_stream_upstream_bytes_variable, 1,
       NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+#if (NGX_HAVE_TCP_INFO)
+    { ngx_string("tcpinfo_up_rtt"), NULL,
+      ngx_upstream_variable_tcpinfo, 0,
+      NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_up_rttvar"), NULL,
+      ngx_upstream_variable_tcpinfo, 1,
+      NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_up_snd_cwnd"), NULL,
+      ngx_upstream_variable_tcpinfo, 2,
+      NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_up_rcv_space"), NULL,
+      ngx_upstream_variable_tcpinfo, 3,
+      NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_up_total_retrans"), NULL,
+      ngx_upstream_variable_tcpinfo, 4
+      NGX_STREAM_VAR_NOCACHEABLE, 0 },
+#endif
 
       ngx_stream_null_variable
 };
@@ -713,3 +740,65 @@ ngx_stream_upstream_init_main_conf(ngx_conf_t *cf, void *conf)
 
     return NGX_CONF_OK;
 }
+
+#if (NGX_HAVE_TCP_INFO)
+
+static ngx_int_t
+ngx_upstream_variable_tcpinfo(ngx_stream_session_t *s, ngx_stream_variable_value_t *v,
+                              uintptr_t data)
+{
+    uint32_t value;
+    ngx_stream_upstream_t *u;
+
+    if (s->upstream == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    u = s->upstream;
+    if (u->state == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    v->data = ngx_pnalloc(s->connection->pool, NGX_INT32_LEN);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    switch (data) {
+    case 0:
+        value = u->state->tcpi_rtt;
+        break;
+
+    case 1:
+        value = u->state->tcpi_rttvar;
+        break;
+
+    case 2:
+        value = u->state->tcpi_snd_cwnd;
+        break;
+
+    case 3:
+        value = u->state->tcpi_rcv_space;
+        break;
+
+    case 4:
+        value = u->state->tcpi_total_retrans;
+        break;
+
+    /* suppress warning */
+    default:
+        value = 0;
+        break;
+    }
+
+    v->len = ngx_sprintf(v->data, "%uD", value) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+#endif

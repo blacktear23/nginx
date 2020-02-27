@@ -1844,6 +1844,10 @@ ngx_stream_proxy_finalize(ngx_stream_session_t *s, ngx_uint_t rc)
     ngx_uint_t              state;
     ngx_connection_t       *pc;
     ngx_stream_upstream_t  *u;
+#if (NGX_HAVE_TCP_INFO)
+    struct tcp_info ti;
+    socklen_t len;
+#endif
 
     ngx_log_debug1(NGX_LOG_DEBUG_STREAM, s->connection->log, 0,
                    "finalize stream proxy: %i", rc);
@@ -1869,6 +1873,16 @@ ngx_stream_proxy_finalize(ngx_stream_session_t *s, ngx_uint_t rc)
         if (pc) {
             u->state->bytes_received = u->received;
             u->state->bytes_sent = pc->sent;
+#if (NGX_HAVE_TCP_INFO)
+            len = sizeof(struct tcp_info);
+            if (getsockopt(pc->fd, IPPROTO_TCP, TCP_INFO, &ti, &len) != -1) {
+                u->state->tcpi_rtt = ti.tcpi_rtt;
+                u->state->tcpi_rttvar = ti.tcpi_rttvar;
+                u->state->tcpi_snd_cwnd = ti.tcpi_snd_cwnd;
+                u->state->tcpi_rcv_space = ti.tcpi_rcv_space;
+                u->state->tcpi_total_retrans = ti.tcpi_total_retrans;
+            }
+#endif
         }
     }
 

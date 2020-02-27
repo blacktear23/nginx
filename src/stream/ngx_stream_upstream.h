@@ -94,6 +94,13 @@ typedef struct {
     off_t                              bytes_sent;
     off_t                              bytes_received;
 
+    /* TCP Info Metrics */
+    uint32_t                           tcpi_rtt;
+    uint32_t                           tcpi_rttvar;
+    uint32_t                           tcpi_snd_cwnd;
+    uint32_t                           tcpi_rcv_space;
+    uint32_t                           tcpi_total_retrans;
+
     ngx_str_t                         *peer;
 } ngx_stream_upstream_state_t;
 
