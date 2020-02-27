@@ -1310,7 +1310,7 @@ ngx_stream_variable_tcpinfo(ngx_stream_session_t *s, ngx_stream_variable_value_t
         return NGX_OK;
     }
 
-    v->data = ngx_pnalloc(r->pool, NGX_INT32_LEN);
+    v->data = ngx_pnalloc(s->connection->pool, NGX_INT32_LEN);
     if (v->data == NULL) {
         return NGX_ERROR;
     }
