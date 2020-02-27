@@ -137,6 +137,9 @@ static ngx_stream_variable_t  ngx_stream_core_variables[] = {
 
     { ngx_string("tcpinfo_rcv_space"), NULL, ngx_stream_variable_tcpinfo,
       3, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_total_retrans"), NULL, ngx_stream_variable_tcpinfo,
+      4, NGX_STREAM_VAR_NOCACHEABLE, 0 },
 #endif
       ngx_stream_null_variable
 };
@@ -1331,6 +1334,10 @@ ngx_stream_variable_tcpinfo(ngx_stream_session_t *s, ngx_stream_variable_value_t
     case 3:
         value = ti.tcpi_rcv_space;
         break;
+
+    case 4:
+	value = ti.tcpi_total_retrans;
+	break;
 
     /* suppress warning */
     default:
