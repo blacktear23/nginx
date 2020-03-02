@@ -228,6 +228,12 @@ struct ngx_stream_session_s {
     unsigned                       health_check:1;
 
     unsigned                       limit_conn_status:2;
+
+#if (NGX_HAVE_TCP_INFO)
+    uint32_t                       tcpi_c_rtt;
+    uint32_t                       tcpi_c_rttvar;
+    uint32_t                       tcpi_c_total_retrans;
+#endif
 };
 
 

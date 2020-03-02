@@ -35,6 +35,10 @@ ngx_stream_init_connection(ngx_connection_t *c)
     struct sockaddr_in6          *sin6;
     ngx_stream_in6_addr_t        *addr6;
 #endif
+#if (NGX_HAVE_TCP_INFO)
+    struct tcp_info               ti;
+    socklen_t                     tilen;
+#endif
     ngx_stream_core_srv_conf_t   *cscf;
     ngx_stream_core_main_conf_t  *cmcf;
 
@@ -132,6 +136,15 @@ ngx_stream_init_connection(ngx_connection_t *c)
     if (c->buffer) {
         s->received += c->buffer->last - c->buffer->pos;
     }
+
+#if (NGX_HAVE_TCP_INFO)
+    tilen = sizeof(struct tcp_info);
+    if (getsockopt(c->fd, IPPROTO_TCP, TCP_INFO, &ti, &tilen) != -1) {
+	s->tcpi_c_rtt = ti.tcpi_rtt;
+	s->tcpi_c_rttvar = ti.tcpi_rttvar;
+	s->tcpi_c_total_retrans = ti.tcpi_total_retrans;
+    }
+#endif
 
     s->connection = c;
     c->data = s;

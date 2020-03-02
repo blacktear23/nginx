@@ -54,6 +54,8 @@ static ngx_int_t ngx_stream_variable_protocol(ngx_stream_session_t *s,
 #if (NGX_HAVE_TCP_INFO)
 static ngx_int_t ngx_stream_variable_tcpinfo(ngx_stream_session_t *s,
     ngx_stream_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_stream_variable_connection_tcpinfo(ngx_stream_session_t *s,
+    ngx_stream_variable_value_t *v, uintptr_t data);
 #endif
 
 static ngx_stream_variable_t  ngx_stream_core_variables[] = {
@@ -140,6 +142,15 @@ static ngx_stream_variable_t  ngx_stream_core_variables[] = {
 
     { ngx_string("tcpinfo_total_retrans"), NULL, ngx_stream_variable_tcpinfo,
       4, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_c_rtt"), NULL, ngx_stream_variable_connection_tcpinfo,
+      0, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_c_rttvar"), NULL, ngx_stream_variable_connection_tcpinfo,
+      1, NGX_STREAM_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_c_total_retrans"), NULL, ngx_stream_variable_connection_tcpinfo,
+      2, NGX_STREAM_VAR_NOCACHEABLE, 0 },
 #endif
       ngx_stream_null_variable
 };
@@ -1339,6 +1350,41 @@ ngx_stream_variable_tcpinfo(ngx_stream_session_t *s, ngx_stream_variable_value_t
 	value = ti.tcpi_total_retrans;
 	break;
 
+    /* suppress warning */
+    default:
+        value = 0;
+        break;
+    }
+
+    v->len = ngx_sprintf(v->data, "%uD", value) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_stream_variable_connection_tcpinfo(ngx_stream_session_t *s, ngx_stream_variable_value_t *v,
+    uintptr_t data)
+{
+    uint32_t        value;
+
+    v->data = ngx_pnalloc(s->connection->pool, NGX_INT32_LEN);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    switch (data) {
+    case 0:
+	value = s->tcpi_c_rtt;
+        break;
+    case 1:
+	value = s->tcpi_c_rttvar;
+        break;
+    case 2:
+	value = s->tcpi_c_total_retrans;
+        break;
     /* suppress warning */
     default:
         value = 0;
