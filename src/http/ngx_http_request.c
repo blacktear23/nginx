@@ -507,6 +507,10 @@ ngx_http_create_request(ngx_connection_t *c)
     ngx_http_request_t        *r;
     ngx_http_log_ctx_t        *ctx;
     ngx_http_core_loc_conf_t  *clcf;
+#if (NGX_HAVE_TCP_INFO)
+    struct tcp_info            ti;
+    socklen_t                  tilen;
+#endif
 
     r = ngx_http_alloc_request(c);
     if (r == NULL) {
@@ -527,6 +531,15 @@ ngx_http_create_request(ngx_connection_t *c)
     (void) ngx_atomic_fetch_add(ngx_stat_reading, 1);
     r->stat_reading = 1;
     (void) ngx_atomic_fetch_add(ngx_stat_requests, 1);
+#endif
+
+#if (NGX_HAVE_TCP_INFO)
+    tilen = sizeof(struct tcp_info);
+    if (getsockopt(c->fd, IPPROTO_TCP, TCP_INFO, &ti, &tilen) != -1) {
+       r->tcpi_c_rtt = ti.tcpi_rtt;
+       r->tcpi_c_rttvar = ti.tcpi_rttvar;
+       r->tcpi_c_total_retrans = ti.tcpi_total_retrans;
+    }
 #endif
 
     return r;

@@ -47,6 +47,8 @@ static ngx_int_t ngx_http_variable_argument(ngx_http_request_t *r,
 #if (NGX_HAVE_TCP_INFO)
 static ngx_int_t ngx_http_variable_tcpinfo(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_variable_connection_tcpinfo(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 #endif
 
 static ngx_int_t ngx_http_variable_content_length(ngx_http_request_t *r,
@@ -372,6 +374,18 @@ static ngx_http_variable_t  ngx_http_core_variables[] = {
 
     { ngx_string("tcpinfo_rcv_space"), NULL, ngx_http_variable_tcpinfo,
       3, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_total_retrans"), NULL, ngx_http_variable_tcpinfo,
+      4, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_c_rtt"), NULL, ngx_http_variable_connection_tcpinfo,
+      0, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_c_rttvar"), NULL, ngx_http_variable_connection_tcpinfo,
+      1, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcpinfo_c_total_retrans"), NULL, ngx_http_variable_connection_tcpinfo,
+      2, NGX_HTTP_VAR_NOCACHEABLE, 0 },
 #endif
 
     { ngx_string("http_"), NULL, ngx_http_variable_unknown_header_in,
@@ -1128,6 +1142,45 @@ ngx_http_variable_tcpinfo(ngx_http_request_t *r, ngx_http_variable_value_t *v,
         value = ti.tcpi_rcv_space;
         break;
 
+    case 4:
+        value = ti.tcpi_total_retrans;
+        break;
+
+    /* suppress warning */
+    default:
+        value = 0;
+        break;
+    }
+
+    v->len = ngx_sprintf(v->data, "%uD", value) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_variable_connection_tcpinfo(ngx_http_request_t *r, ngx_http_variable_value_t *v,
+    uintptr_t data)
+{
+    uint32_t        value;
+
+    v->data = ngx_pnalloc(r->pool, NGX_INT32_LEN);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    switch (data) {
+    case 0:
+       value = r->tcpi_c_rtt;
+        break;
+    case 1:
+       value = r->tcpi_c_rttvar;
+        break;
+    case 2:
+       value = r->tcpi_c_total_retrans;
+        break;
     /* suppress warning */
     default:
         value = 0;

@@ -373,6 +373,12 @@ struct ngx_http_request_s {
 
     ngx_connection_t                 *connection;
 
+#if (NGX_HAVE_TCP_INFO)
+    uint32_t                          tcpi_c_rtt;
+    uint32_t                          tcpi_c_rttvar;
+    uint32_t                          tcpi_c_total_retrans;
+#endif
+
     void                            **ctx;
     void                            **main_conf;
     void                            **srv_conf;
