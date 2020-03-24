@@ -49,6 +49,8 @@ static ngx_int_t ngx_http_variable_tcpinfo(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_variable_connection_tcpinfo(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_variable_tcpcong(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
 #endif
 
 static ngx_int_t ngx_http_variable_content_length(ngx_http_request_t *r,
@@ -386,6 +388,9 @@ static ngx_http_variable_t  ngx_http_core_variables[] = {
 
     { ngx_string("tcpinfo_c_total_retrans"), NULL, ngx_http_variable_connection_tcpinfo,
       2, NGX_HTTP_VAR_NOCACHEABLE, 0 },
+
+    { ngx_string("tcp_cong"), NULL, ngx_http_variable_tcpcong,
+      0, NGX_HTTP_VAR_NOCACHEABLE, 0 },
 #endif
 
     { ngx_string("http_"), NULL, ngx_http_variable_unknown_header_in,
@@ -1188,6 +1193,35 @@ ngx_http_variable_connection_tcpinfo(ngx_http_request_t *r, ngx_http_variable_va
     }
 
     v->len = ngx_sprintf(v->data, "%uD", value) - v->data;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+#define TCP_CONGESTION 13
+
+static ngx_int_t
+ngx_http_variable_tcpcong(ngx_http_request_t *r, ngx_http_variable_value_t *v,
+    uintptr_t data)
+{
+    u_char   optval[16];
+    size_t   len;
+
+    if(getsockopt(r->connection->fd, IPPROTO_TCP, TCP_CONGESTION, (void *)optval, (socklen_t *)&len) == -1) {
+        return NGX_ERROR;
+    }
+
+    len = ngx_strlen(optval);
+    v->data = ngx_pnalloc(r->pool, len);
+    if (v->data == NULL) {
+        return NGX_ERROR;
+    }
+
+    ngx_memcpy(v->data, optval, len);
+
+    v->len = len;
     v->valid = 1;
     v->no_cacheable = 0;
     v->not_found = 0;

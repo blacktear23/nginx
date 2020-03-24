@@ -84,6 +84,10 @@ static ngx_int_t ngx_http_get_forwarded_addr_internal(ngx_http_request_t *r,
 static char *ngx_http_disable_symlinks(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 #endif
+void ngx_select_tcp_cong(ngx_http_request_t *r);
+#if (NGX_HAVE_TCP_INFO)
+int ngx_set_tcp_cong(ngx_connection_t *c, const u_char* cong_name);
+#endif
 
 static char *ngx_http_core_lowat_check(ngx_conf_t *cf, void *post, void *data);
 static char *ngx_http_core_pool_size(ngx_conf_t *cf, void *post, void *data);
@@ -1750,8 +1754,67 @@ ngx_http_send_header(ngx_http_request_t *r)
         r->headers_out.status_line.len = 0;
     }
 
+    ngx_select_tcp_cong(r);
+
     return ngx_http_top_header_filter(r);
 }
+
+
+#if (NGX_HAVE_TCP_INFO)
+
+#define TCP_CONGESTION 13
+
+void
+ngx_select_tcp_cong(ngx_http_request_t *r) {
+    ngx_connection_t  *c;
+    struct tcp_info    ti;
+    socklen_t          len;
+    uint32_t           srtt;
+    uint32_t           cwnd;
+    off_t              content_length;
+
+    c = r->connection;
+    len = sizeof(struct tcp_info);
+    if (getsockopt(c->fd, IPPROTO_TCP, TCP_INFO, &ti, &len) == -1) {
+        return;
+    }
+
+    srtt = ti.tcpi_rtt;
+    cwnd = ti.tcpi_snd_cwnd;
+    content_length = r->headers_out.content_length_n;
+
+    // If content length less than 1 cwnd (about 15k) just use cubic
+    // that tcp cong will not using pacing rate to limit packet send rate
+    // it will send all cwnd packets fast.
+    if (content_length > 0 && content_length <= (cwnd * 1500)) {
+        ngx_set_tcp_cong(c, "cubic");
+        return;
+    }
+
+    // more than 10ms use bbr
+    // else use cubic
+    if (srtt > 10000) {
+        ngx_set_tcp_cong(c, "bbr");
+    } else {
+        ngx_set_tcp_cong(c, "cubic");
+    }
+
+}
+
+int
+ngx_set_tcp_cong(ngx_connection_t *c, const char* cong_name) {
+    u_char optval[16];
+    ngx_cpystrn(optval, (u_char *)cong_name, 15);
+    return setsockopt(c->fd, IPPROTO_TCP, TCP_CONGESTION,
+                      (const void *)optval, ngx_strlen(optval));
+}
+
+#else
+void
+ngx_select_tcp_cong(ngx_http_request_t *r) {
+
+}
+#endif
 
 
 ngx_int_t
