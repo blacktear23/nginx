@@ -86,7 +86,7 @@ static char *ngx_http_disable_symlinks(ngx_conf_t *cf, ngx_command_t *cmd,
 #endif
 void ngx_select_tcp_cong(ngx_http_request_t *r);
 #if (NGX_HAVE_TCP_INFO)
-int ngx_set_tcp_cong(ngx_connection_t *c, const u_char* cong_name);
+int ngx_set_tcp_cong(ngx_connection_t *c, const char* cong_name);
 #endif
 
 static char *ngx_http_core_lowat_check(ngx_conf_t *cf, void *post, void *data);
