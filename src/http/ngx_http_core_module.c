@@ -84,8 +84,8 @@ static ngx_int_t ngx_http_get_forwarded_addr_internal(ngx_http_request_t *r,
 static char *ngx_http_disable_symlinks(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf);
 #endif
-void ngx_select_tcp_cong(ngx_http_request_t *r);
 #if (NGX_HAVE_TCP_INFO)
+void ngx_select_tcp_cong(ngx_http_request_t *r);
 int ngx_set_tcp_cong(ngx_connection_t *c, const char* cong_name);
 #endif
 
@@ -761,6 +761,18 @@ static ngx_command_t  ngx_http_core_commands[] = {
       ngx_http_disable_symlinks,
       NGX_HTTP_LOC_CONF_OFFSET,
       0,
+      NULL },
+
+#endif
+
+#if (NGX_HAVE_TCP_INFO)
+
+    { ngx_string("tcp_cong_select"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_HTTP_LIF_CONF
+                        |NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_core_loc_conf_t, tcp_cong_select),
       NULL },
 
 #endif
@@ -1739,6 +1751,10 @@ ngx_http_send_response(ngx_http_request_t *r, ngx_uint_t status,
 ngx_int_t
 ngx_http_send_header(ngx_http_request_t *r)
 {
+#if (NGX_HAVE_TCP_INFO)
+    ngx_http_core_loc_conf_t  *clcf;
+#endif
+
     if (r->post_action) {
         return NGX_OK;
     }
@@ -1754,7 +1770,12 @@ ngx_http_send_header(ngx_http_request_t *r)
         r->headers_out.status_line.len = 0;
     }
 
-    ngx_select_tcp_cong(r);
+#if (NGX_HAVE_TCP_INFO)
+    clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
+    if (clcf->tcp_cong_select) {
+        ngx_select_tcp_cong(r);
+    }
+#endif
 
     return ngx_http_top_header_filter(r);
 }
@@ -1809,11 +1830,6 @@ ngx_set_tcp_cong(ngx_connection_t *c, const char* cong_name) {
                       (const void *)optval, ngx_strlen(optval));
 }
 
-#else
-void
-ngx_select_tcp_cong(ngx_http_request_t *r) {
-
-}
 #endif
 
 
@@ -3524,6 +3540,10 @@ ngx_http_core_create_loc_conf(ngx_conf_t *cf)
     clcf->disable_symlinks_from = NGX_CONF_UNSET_PTR;
 #endif
 
+#if (NGX_HAVE_TCP_INFO)
+    clcf->tcp_cong_select = NGX_CONF_UNSET;
+#endif
+
     return clcf;
 }
 
@@ -3824,6 +3844,10 @@ ngx_http_core_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
                               NGX_DISABLE_SYMLINKS_OFF);
     ngx_conf_merge_ptr_value(conf->disable_symlinks_from,
                              prev->disable_symlinks_from, NULL);
+#endif
+
+#if (NGX_HAVE_TCP_INFO)
+    ngx_conf_merge_value(conf->tcp_cong_select, prev->tcp_cong_select, 0);
 #endif
 
     return NGX_CONF_OK;

@@ -397,6 +397,10 @@ struct ngx_http_core_loc_conf_s {
     ngx_flag_t    chunked_transfer_encoding; /* chunked_transfer_encoding */
     ngx_flag_t    etag;                    /* etag */
 
+#if (NGX_HAVE_TCP_INFO)
+    ngx_flag_t    tcp_cong_select;         /* auto select TCP congestion */
+#endif
+
 #if (NGX_HTTP_GZIP)
     ngx_flag_t    gzip_vary;               /* gzip_vary */
 
